@@ -57,6 +57,7 @@ TYPE obj
     w AS INTEGER
     h AS INTEGER
     IsOn AS _BYTE
+    lastSwitch AS SINGLE
 END TYPE
 
 DIM SHARED maxGridW AS INTEGER, maxGridH AS INTEGER
@@ -66,21 +67,21 @@ DIM SHARED start!, moves AS INTEGER, m$
 DIM SHARED i AS INTEGER, j AS INTEGER, Level AS INTEGER
 DIM k AS LONG, Alpha AS INTEGER
 DIM maxW AS INTEGER, maxH AS INTEGER
-DIM MinMoves AS INTEGER
+DIM MinMoves AS INTEGER, Score AS _UNSIGNED LONG
 
 IF LightOn < -1 AND LightOff < -1 THEN
     'Show intro
-    _PUTIMAGE (_WIDTH / 2 - _WIDTH(LightOff) / 2, _HEIGHT / 2 - _HEIGHT(LightOff) / 2 - FontHeight), LightOff
+    _PUTIMAGE (_WIDTH / 2 - _WIDTH(LightOff) / 2, 0), LightOff
     _DELAY 1
     Alpha = 0
     IF Piano > 0 THEN _SNDPLAY Piano
     DO
         IF Alpha < 255 THEN Alpha = Alpha + 5 ELSE EXIT DO
         _SETALPHA Alpha, , LightOn
-        _PUTIMAGE (_WIDTH / 2 - _WIDTH(LightOn) / 2, _HEIGHT / 2 - _HEIGHT(LightOn) / 2 - FontHeight), LightOn
+        _PUTIMAGE (_WIDTH / 2 - _WIDTH(LightOn) / 2, 0), LightOn
 
         COLOR _RGBA32(255, 255, 255, Alpha), _RGB32(0, 0, 0)
-        _PRINTSTRING (_WIDTH / 2 - _PRINTWIDTH("Lights On") / 2, _HEIGHT - FontHeight * 2), "Lights On"
+        _PRINTSTRING (_WIDTH / 2 - _PRINTWIDTH("Lights On") / 2, _HEIGHT - FontHeight * 4), "Lights On"
         _DISPLAY
         _LIMIT 20
     LOOP
@@ -91,15 +92,23 @@ DO
     Level = Level + 1
 
     SELECT CASE Level
-        CASE 1, 2
+        CASE 1
+            maxGridW = 1
+            maxGridH = 2
+            MinMoves = 2
+        CASE 2
+            maxGridW = 2
+            maxGridH = 2
+            MinMoves = 1
+        CASE 3, 4
             maxGridW = 4
             maxGridH = 5
             MinMoves = 11
-        CASE 3, 4
+        CASE 5
             maxGridW = 5
             maxGridH = 7
             MinMoves = 65
-        CASE 5, 6
+        CASE 6
             maxGridW = 10
             maxGridH = 10
             MinMoves = 65
@@ -107,6 +116,18 @@ DO
             maxGridW = 7
             maxGridH = 9
             MinMoves = 90
+        CASE 9, 10
+            maxGridW = 7
+            maxGridH = 11
+            MinMoves = 130
+        CASE 11, 12
+            maxGridW = 9
+            maxGridH = 11
+            MinMoves = 90
+        CASE 13, 14
+            maxGridW = 11
+            maxGridH = 17
+            MinMoves = 180
         CASE ELSE
             maxGridW = 20
             maxGridH = 20
@@ -156,23 +177,30 @@ DO
     LOOP UNTIL Victory
 
     UpdateArena
+    _DEST 0
+    _PUTIMAGE (0, 0), Arena
 
-    DIM EndAnimationStep AS INTEGER
-    DIM SlideOpen AS INTEGER
+    DIM EndAnimationStep AS INTEGER, FinalBonus AS _BYTE
+    DIM SlideOpen AS INTEGER, SlideVelocity AS SINGLE
     DIM Snd1 AS _BYTE, Snd2 AS _BYTE, Snd3 AS _BYTE
+    DIM FinalLamp1!, FinalLamp2!, FinalLamp3!
+
     Snd1 = false: Snd2 = false: Snd3 = false
+    FinalBonus = false
+
+    IF LightOn < -1 THEN _SETALPHA 255, , LightOn
 
     _DEST SonicPassed
     COLOR _RGB32(0, 0, 0), 0
     CLS
-    m$ = "You Passed!"
+    m$ = "Lights On!"
     _PRINTSTRING (_WIDTH / 2 - _PRINTWIDTH(m$) / 2, _HEIGHT / 2 - 80 - FontHeight * 3), m$
 
     m$ = "Moves used:" + STR$(moves)
-    _PRINTSTRING (_WIDTH / 2 - _PRINTWIDTH(m$) / 2, _HEIGHT / 2 - 80 - FontHeight * 2), m$
+    _PRINTSTRING (_WIDTH / 2 - _PRINTWIDTH(m$) / 2, _HEIGHT / 2 + FontHeight * 2.5), m$
 
     m$ = "Click anywhere to continue"
-    _PRINTSTRING (_WIDTH / 2 - _PRINTWIDTH(m$) / 2, _HEIGHT / 2 + 80 + FontHeight * 3), m$
+    _PRINTSTRING (_WIDTH / 2 - _PRINTWIDTH(m$) / 2, _HEIGHT - FontHeight * 1.5), m$
     _DEST 0
 
     Alpha = 0
@@ -181,30 +209,51 @@ DO
     DO
         SELECT CASE EndAnimationStep
             CASE 1
-                _PUTIMAGE (0, 0), Arena
-                IF Alpha < 255 THEN Alpha = Alpha + 10 ELSE EndAnimationStep = 2: SlideOpen = 0: Alpha = 0: CLS
+                IF Alpha < 255 THEN Alpha = Alpha + 10 ELSE EndAnimationStep = 2: SlideOpen = 0: SlideVelocity = 30: Alpha = 0: CLS
                 LINE (0, 0)-(_WIDTH, _HEIGHT), _RGBA32(255, 255, 0, Alpha), BF
                 LINE (0, 0)-(_WIDTH, _HEIGHT), _RGBA32(255, 255, 255, Alpha), BF
                 _PUTIMAGE (0, 0), SonicPassed
                 _DISPLAY
             CASE 2
-                LINE (0, 0)-(_WIDTH, _HEIGHT), _RGB32(255, 255, 255), BF
-                IF SlideOpen < 400 THEN SlideOpen = SlideOpen + 15 ELSE EndAnimationStep = 3
+                LINE (0, 0)-(_WIDTH, _HEIGHT), _RGBA32(255, 255, 255, 30), BF
+                SlideVelocity = SlideVelocity - .2
+                IF SlideVelocity < 1 THEN SlideVelocity = 1
+                IF SlideOpen < 600 THEN
+                    SlideOpen = SlideOpen + SlideVelocity
+                ELSE
+                    SlideOpen = 600
+                    EndAnimationStep = 3
+                    i = _WIDTH / 2 - (SlideOpen / 3.5)
+                    j = _HEIGHT / 2 - SlideOpen / 5 + FontHeight * 1.5
+                END IF
+
                 _PUTIMAGE (0, 0), SonicPassed
-                LINE (_WIDTH / 2 - SlideOpen / 2, _HEIGHT / 2 - SlideOpen / 5 + FontHeight * 1.5)-STEP(SlideOpen, SlideOpen / 5), _RGB32(0, 0, 0), BF
+                LINE (0, _HEIGHT / 2 - 120 + FontHeight * 1.5)-STEP(SlideOpen, 120), _RGB32(0, 0, 0), BF
                 _DISPLAY
             CASE IS >= 3
                 EndAnimationStep = EndAnimationStep + 1
                 LINE (0, 0)-(_WIDTH, _HEIGHT), _RGB32(255, 255, 255), BF
                 _PUTIMAGE (0, 0), SonicPassed
-                LINE (_WIDTH / 2 - SlideOpen / 2, _HEIGHT / 2 - SlideOpen / 5 + FontHeight * 1.5)-STEP(SlideOpen, SlideOpen / 5), _RGB32(0, 0, 0), BF
+                LINE (0, _HEIGHT / 2 - 120 + FontHeight * 1.5)-STEP(SlideOpen, 120), _RGB32(0, 0, 0), BF
 
-                IF EndAnimationStep > 3 THEN
+                IF LightOff < -1 THEN
+                    _PUTIMAGE (i, j)-STEP(SlideOpen / 5, SlideOpen / 5), LightOff
+                    _PUTIMAGE (i + SlideOpen / 5, j)-STEP(SlideOpen / 5, SlideOpen / 5), LightOff
+                    _PUTIMAGE (i + (SlideOpen / 5) * 2, j)-STEP(SlideOpen / 5, SlideOpen / 5), LightOff
+                END IF
+
+                IF EndAnimationStep >= 3 THEN
                     IF MinMoves <= MinMoves * 3 THEN
                         IF Ding > 0 AND Snd1 = false THEN _SNDPLAYCOPY Ding: Snd1 = true
-                        i = _WIDTH / 2 - (SlideOpen / 3.5)
-                        j = _HEIGHT / 2 - SlideOpen / 5 + FontHeight * 1.5
+                        IF EndAnimationStep = 4 THEN FinalLamp1! = TIMER: Score = Score + 20
+
+                        IF EndAnimationStep <= 20 THEN
+                            Score = Score + 10
+                            IF Switch > 0 THEN _SNDPLAYCOPY Switch
+                        END IF
+
                         IF LightOn < -1 THEN
+                            _SETALPHA constrain(map(TIMER - FinalLamp1!, 0, .3, 0, 255), 0, 255), , LightOn
                             _PUTIMAGE (i, j)-STEP(SlideOpen / 5, SlideOpen / 5), LightOn
                         ELSE
                             LINE (i, j)-STEP(SlideOpen / 5, SlideOpen / 5), _RGB32(111, 227, 39), BF
@@ -216,7 +265,15 @@ DO
                 IF EndAnimationStep > 20 THEN
                     IF moves <= MinMoves * 2 THEN
                         IF Ding > 0 AND Snd2 = false THEN _SNDPLAYCOPY Ding: Snd2 = true
+                        IF EndAnimationStep = 21 THEN FinalLamp2! = TIMER: Score = Score + 20
+
+                        IF EndAnimationStep <= 40 THEN
+                            Score = Score + 10
+                            IF Switch > 0 THEN _SNDPLAYCOPY Switch
+                        END IF
+
                         IF LightOn < -1 THEN
+                            _SETALPHA constrain(map(TIMER - FinalLamp2!, 0, .3, 0, 255), 0, 255), , LightOn
                             _PUTIMAGE (i + SlideOpen / 5, j)-STEP(SlideOpen / 5, SlideOpen / 5), LightOn
                         ELSE
                             LINE (i + SlideOpen / 5, j)-STEP(SlideOpen / 5, SlideOpen / 5), _RGB32(111, 227, 39), BF
@@ -228,11 +285,37 @@ DO
                 IF EndAnimationStep > 40 THEN
                     IF moves <= MinMoves THEN
                         IF Ding > 0 AND Snd3 = false THEN _SNDPLAYCOPY Ding: Snd3 = true
+                        IF EndAnimationStep = 41 THEN FinalLamp3! = TIMER: Score = Score + 20
+
+                        IF EndAnimationStep <= 60 THEN
+                            Score = Score + 10
+                            IF Switch > 0 THEN _SNDPLAYCOPY Switch
+                        END IF
+
                         IF LightOn < -1 THEN
+                            _SETALPHA constrain(map(TIMER - FinalLamp3!, 0, .3, 0, 255), 0, 255), , LightOn
                             _PUTIMAGE (i + (SlideOpen / 5) * 2, j)-STEP(SlideOpen / 5, SlideOpen / 5), LightOn
                         ELSE
                             LINE (i + (SlideOpen / 5) * 2, j)-STEP(SlideOpen / 5, SlideOpen / 5), _RGB32(111, 227, 39), BF
-                            LINE (i + (SlideOpen / 5) * 2, j)-STEP(SlideOpen / 5, SlideOpen / 5), _RGB32(0,0,0), B
+                            LINE (i + (SlideOpen / 5) * 2, j)-STEP(SlideOpen / 5, SlideOpen / 5), _RGB32(0, 0, 0), B
+                        END IF
+                    END IF
+                END IF
+
+                m$ = "Score:" + STR$(Score)
+                _PRINTSTRING (_WIDTH / 2 - _PRINTWIDTH(m$) / 2, _HEIGHT / 2 + FontHeight * 3.5), m$
+
+                IF EndAnimationStep > 60 THEN
+                    IF FinalBonus = false THEN
+                        FinalBonus = true
+                        IF moves < MinMoves THEN
+                            Score = Score + 50
+                            IF Ding > 0 THEN _SNDPLAYCOPY Ding
+                        END IF
+                    ELSE
+                        IF moves < MinMoves THEN
+                            m$ = "Strategy master! +50 bonus points!"
+                            _PRINTSTRING (_WIDTH / 2 - _PRINTWIDTH(m$) / 2, _HEIGHT / 2 + FontHeight * 5.5), m$
                         END IF
                     END IF
                 END IF
@@ -242,12 +325,12 @@ DO
 
         k = _KEYHIT
 
-        IF k = 13 THEN EXIT DO
+        IF k = 13 AND EndAnimationStep > 60 THEN EXIT DO
         IF k = 27 THEN SYSTEM
 
         WHILE _MOUSEINPUT: WEND
 
-        IF _MOUSEBUTTON(1) THEN
+        IF _MOUSEBUTTON(1) AND EndAnimationStep > 60 THEN
             WHILE _MOUSEBUTTON(1): i = _MOUSEINPUT: WEND
             EXIT DO
         END IF
@@ -266,19 +349,19 @@ SUB UpdateArena
     CLS
     FOR i = 1 TO maxGridW
         FOR j = 1 TO maxGridH
+            IF LightOff < -1 THEN
+                _PUTIMAGE (lights(i, j).x + lights(i, j).w / 2 - imgWidth / 2, lights(i, j).y)-STEP(imgWidth, lights(i, j).h), LightOff
+            END IF
             IF lights(i, j).IsOn THEN
                 IF LightOn < -1 THEN
-                    _PUTIMAGE (lights(i, j).x + lights(i, j).w / 2 - imgWidth / 2, lights(i, j).y)-STEP(imgWidth, lights(i, j).h), LightOn, , , _SMOOTH
+                    _SETALPHA constrain(map(TIMER - lights(i, j).lastSwitch, 0, .3, 0, 255), 0, 255), , LightOn
+                    _PUTIMAGE (lights(i, j).x + lights(i, j).w / 2 - imgWidth / 2, lights(i, j).y)-STEP(imgWidth, lights(i, j).h), LightOn
                 ELSE
                     LINE (lights(i, j).x, lights(i, j).y)-STEP(lights(i, j).w, lights(i, j).h), _RGB32(111, 227, 39), BF
                 END IF
-            ELSE
-                IF LightOff < -1 THEN
-                    _PUTIMAGE (lights(i, j).x + lights(i, j).w / 2 - imgWidth / 2, lights(i, j).y)-STEP(imgWidth, lights(i, j).h), LightOff, , , _SMOOTH
-                END IF
             END IF
             IF Hovering(lights(i, j)) THEN
-                LINE (lights(i, j).x, lights(i, j).y)-STEP(lights(i, j).w, lights(i, j).h), _RGBA32(28, 194, 255, 100), BF
+                LINE (lights(i, j).x, lights(i, j).y)-STEP(lights(i, j).w, lights(i, j).h), _RGBA32(255, 255, 255, 100), BF
                 CheckState lights(i, j)
             END IF
             LINE (lights(i, j).x, lights(i, j).y)-STEP(lights(i, j).w, lights(i, j).h), , B
@@ -287,7 +370,7 @@ SUB UpdateArena
 END SUB
 
 SUB UpdateScore
-    m$ = "Level:" + STR$(Level) + "    Moves:" + STR$(moves) + "    Time elapsed:" + STR$(INT(TIMER - start!)) + "s"
+    m$ = "Level:" + STR$(Level) + " (" + LTRIM$(STR$(maxGridW)) + "x" + LTRIM$(STR$(maxGridH)) + ")    Moves:" + STR$(moves) + "    Time elapsed:" + STR$(INT(TIMER - start!)) + "s"
 
     COLOR _RGB32(0, 0, 0), _RGB32(255, 255, 255)
     CLS
@@ -319,37 +402,52 @@ END SUB
 
 SUB SetState (object AS obj)
     DIM ioff AS INTEGER, joff AS INTEGER
-    'ioff = 0
-    'joff = 0
-    'IF object.i + ioff > 0 AND object.i + ioff < maxGridW + 1 AND object.j + joff > 0 AND object.j + joff < maxGridH + 1 THEN
-    '    lights(object.i + ioff, object.j + joff).IsOn = NOT lights(object.i + ioff, object.j + joff).IsOn
-    'END IF
-
     ioff = -1
     joff = 0
     IF object.i + ioff > 0 AND object.i + ioff < maxGridW + 1 AND object.j + joff > 0 AND object.j + joff < maxGridH + 1 THEN
         lights(object.i + ioff, object.j + joff).IsOn = NOT lights(object.i + ioff, object.j + joff).IsOn
+        lights(object.i + ioff, object.j + joff).lastSwitch = TIMER
     END IF
 
     ioff = 1
     joff = 0
     IF object.i + ioff > 0 AND object.i + ioff < maxGridW + 1 AND object.j + joff > 0 AND object.j + joff < maxGridH + 1 THEN
         lights(object.i + ioff, object.j + joff).IsOn = NOT lights(object.i + ioff, object.j + joff).IsOn
+        lights(object.i + ioff, object.j + joff).lastSwitch = TIMER
     END IF
 
     ioff = 0
     joff = -1
     IF object.i + ioff > 0 AND object.i + ioff < maxGridW + 1 AND object.j + joff > 0 AND object.j + joff < maxGridH + 1 THEN
         lights(object.i + ioff, object.j + joff).IsOn = NOT lights(object.i + ioff, object.j + joff).IsOn
+        lights(object.i + ioff, object.j + joff).lastSwitch = TIMER
     END IF
 
     ioff = 0
     joff = 1
     IF object.i + ioff > 0 AND object.i + ioff < maxGridW + 1 AND object.j + joff > 0 AND object.j + joff < maxGridH + 1 THEN
         lights(object.i + ioff, object.j + joff).IsOn = NOT lights(object.i + ioff, object.j + joff).IsOn
+        lights(object.i + ioff, object.j + joff).lastSwitch = TIMER
     END IF
 END SUB
 
 FUNCTION Hovering%% (object AS obj)
     Hovering%% = _MOUSEX > object.x AND _MOUSEX < object.x + object.w AND _MOUSEY > object.y AND _MOUSEY < object.y + object.h
+END FUNCTION
+
+'functions below are borrowed from p5js.bas:
+FUNCTION map! (value!, minRange!, maxRange!, newMinRange!, newMaxRange!)
+    map! = ((value! - minRange!) / (maxRange! - minRange!)) * (newMaxRange! - newMinRange!) + newMinRange!
+END FUNCTION
+
+FUNCTION min! (a!, b!)
+    IF a! < b! THEN min! = a! ELSE min! = b!
+END FUNCTION
+
+FUNCTION max! (a!, b!)
+    IF a! > b! THEN max! = a! ELSE max! = b!
+END FUNCTION
+
+FUNCTION constrain! (n!, low!, high!)
+    constrain! = max(min(n!, high!), low!)
 END FUNCTION
