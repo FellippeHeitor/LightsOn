@@ -58,6 +58,7 @@ TYPE obj
     h AS INTEGER
     IsOn AS _BYTE
     lastSwitch AS SINGLE
+    lastHint AS SINGLE
 END TYPE
 
 DIM SHARED maxGridW AS INTEGER, maxGridH AS INTEGER
@@ -65,6 +66,10 @@ DIM SHARED maxGridW AS INTEGER, maxGridH AS INTEGER
 DIM SHARED lights(1 TO 20, 1 TO 20) AS obj
 DIM SHARED start!, moves AS INTEGER, m$
 DIM SHARED i AS INTEGER, j AS INTEGER, Level AS INTEGER
+DIM LastActivity AS SINGLE, oldMouseX AS INTEGER, oldMouseY AS INTEGER
+DIM Highlight AS _BYTE, HighlightX AS INTEGER, HighlightY AS INTEGER
+DIM LastHighlightUpdate AS SINGLE
+
 DIM k AS LONG, Alpha AS INTEGER
 DIM maxW AS INTEGER, maxH AS INTEGER
 DIM MinMoves AS INTEGER, Score AS _UNSIGNED LONG
@@ -157,9 +162,27 @@ DO
     NEXT
 
     start! = TIMER
+    LastActivity = TIMER
     moves = 0
     DO
         WHILE _MOUSEINPUT: WEND
+
+        IF _MOUSEX <> oldMouseX OR _MOUSEY <> oldMouseY THEN
+            LastActivity = TIMER
+            oldMouseX = _MOUSEX
+            oldMouseY = _MOUSEY
+        END IF
+
+        IF TIMER - LastActivity >= 10 AND Highlight = false THEN Highlight = true: HighlightY = maxGridH
+
+        IF Highlight THEN
+            FOR j = 1 TO maxGridW
+                lights(j, HighlightY).lastHint = TIMER
+            NEXT
+            HighlightY = HighlightY - 1
+            IF HighlightY < 1 THEN Highlight = false
+            LastActivity = TIMER
+        END IF
 
         UpdateArena
 
@@ -184,6 +207,7 @@ DO
     DIM SlideOpen AS INTEGER, SlideVelocity AS SINGLE
     DIM Snd1 AS _BYTE, Snd2 AS _BYTE, Snd3 AS _BYTE
     DIM FinalLamp1!, FinalLamp2!, FinalLamp3!
+    DIM SkipEndAnimation AS _BYTE
 
     Snd1 = false: Snd2 = false: Snd3 = false
     FinalBonus = false
@@ -205,6 +229,7 @@ DO
 
     Alpha = 0
     EndAnimationStep = 1
+    SkipEndAnimation = false
     IF Piano > 0 THEN _SNDPLAY Piano
     DO
         SELECT CASE EndAnimationStep
@@ -228,7 +253,9 @@ DO
                 END IF
 
                 _PUTIMAGE (0, 0), SonicPassed
-                LINE (0, _HEIGHT / 2 - 120 + FontHeight * 1.5)-STEP(SlideOpen, 120), _RGB32(0, 0, 0), BF
+                DIM b AS INTEGER
+                b = map(SlideOpen, 0, 600, 255, 0)
+                LINE (0, _HEIGHT / 2 - 120 + FontHeight * 1.5)-STEP(SlideOpen, 120), _RGB32(b, b, b), BF
                 _DISPLAY
             CASE IS >= 3
                 EndAnimationStep = EndAnimationStep + 1
@@ -333,9 +360,11 @@ DO
         IF _MOUSEBUTTON(1) AND EndAnimationStep > 60 THEN
             WHILE _MOUSEBUTTON(1): i = _MOUSEINPUT: WEND
             EXIT DO
+        ELSEIF _MOUSEBUTTON(1) THEN
+            SkipEndAnimation = true
         END IF
 
-        _LIMIT 30
+        IF NOT SkipEndAnimation THEN _LIMIT 30
     LOOP
 LOOP
 
@@ -358,6 +387,11 @@ SUB UpdateArena
                     _PUTIMAGE (lights(i, j).x + lights(i, j).w / 2 - imgWidth / 2, lights(i, j).y)-STEP(imgWidth, lights(i, j).h), LightOn
                 ELSE
                     LINE (lights(i, j).x, lights(i, j).y)-STEP(lights(i, j).w, lights(i, j).h), _RGB32(111, 227, 39), BF
+                END IF
+            ELSE
+                IF LightOn < -1 THEN
+                    _SETALPHA constrain(map(TIMER - lights(i, j).lastHint, 0, 1, 100, 0), 0, 80), , LightOn
+                    _PUTIMAGE (lights(i, j).x + lights(i, j).w / 2 - imgWidth / 2, lights(i, j).y)-STEP(imgWidth, lights(i, j).h), LightOn
                 END IF
             END IF
             IF Hovering(lights(i, j)) THEN
