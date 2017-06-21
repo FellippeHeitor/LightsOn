@@ -22,7 +22,7 @@ CONST true = -1, false = NOT true
 RANDOMIZE TIMER
 
 DIM SHARED Arena AS LONG, SonicPassed AS LONG, Bg AS LONG
-DIM SHARED LightOn AS LONG, LightOff AS LONG
+DIM SHARED LightOn(1 TO 9) AS LONG, LightOff(1 TO 9) AS LONG
 DIM SHARED Ding AS LONG, Piano AS LONG, Switch AS LONG, Bonus AS LONG
 DIM SHARED Arial AS LONG, FontHeight AS INTEGER
 
@@ -30,13 +30,31 @@ Arena = _NEWIMAGE(600, 600, 32)
 
 'Load assets:
 'Arial = _LOADFONT("arial.ttf", 24)
-LightOn = _LOADIMAGE("assets/lighton.png", 32)
-LightOff = _LOADIMAGE("assets/lightoff.png", 32)
+LightOn(1) = _LOADIMAGE("assets/lighton.png", 32)
+LightOn(2) = _LOADIMAGE("assets/lighton300.png", 32)
+LightOn(3) = _LOADIMAGE("assets/lighton120.png", 32)
+LightOn(4) = _LOADIMAGE("assets/lighton86.png", 32)
+LightOn(5) = _LOADIMAGE("assets/lighton67.png", 32)
+LightOn(6) = _LOADIMAGE("assets/lighton60.png", 32)
+LightOn(7) = _LOADIMAGE("assets/lighton55.png", 32)
+LightOn(8) = _LOADIMAGE("assets/lighton35.png", 32)
+LightOn(9) = _LOADIMAGE("assets/lighton30.png", 32)
+
+LightOff(1) = _LOADIMAGE("assets/lightoff.png", 32)
+LightOff(2) = _LOADIMAGE("assets/lightoff300.png", 32)
+LightOff(3) = _LOADIMAGE("assets/lightoff120.png", 32)
+LightOff(4) = _LOADIMAGE("assets/lightoff86.png", 32)
+LightOff(5) = _LOADIMAGE("assets/lightoff67.png", 32)
+LightOff(6) = _LOADIMAGE("assets/lightoff60.png", 32)
+LightOff(7) = _LOADIMAGE("assets/lightoff55.png", 32)
+LightOff(8) = _LOADIMAGE("assets/lightoff35.png", 32)
+LightOff(9) = _LOADIMAGE("assets/lightoff30.png", 32)
+
 Bg = _LOADIMAGE("assets/bg.jpg", 32)
 Ding = _SNDOPEN("assets/ding.wav", "sync")
 Piano = _SNDOPEN("assets/piano.ogg", "sync")
 Switch = _SNDOPEN("assets/switch.wav", "sync")
-Bonus = _SNDOPEN("assets/bonus.ogg", "sync")
+Bonus = _SNDOPEN("assets/bonus.wav", "sync")
 
 IF Bg < -1 THEN _SETALPHA 30, , Bg
 IF Arial > 0 THEN FontHeight = _FONTHEIGHT(Arial) ELSE FontHeight = 16
@@ -76,6 +94,7 @@ DIM k AS LONG, Alpha AS INTEGER
 DIM maxW AS INTEGER, maxH AS INTEGER
 DIM MinMoves AS INTEGER, Score AS _UNSIGNED LONG
 DIM TryAgain AS _BYTE
+DIM SHARED lightID AS INTEGER
 
 DIM Button(1 TO 2) AS obj, Caption(1 TO 2) AS STRING
 Caption(1) = "Try again"
@@ -91,7 +110,7 @@ Button(2).x = _WIDTH / 2 + 10
 Button(2).h = 40
 
 
-IF LightOn < -1 AND LightOff < -1 THEN
+IF LightOn(1) < -1 AND LightOff(1) < -1 THEN
     'Show intro
     _DEST SonicPassed
     CLS , 0
@@ -99,7 +118,7 @@ IF LightOn < -1 AND LightOff < -1 THEN
     _PRINTSTRING (_WIDTH / 2 - _PRINTWIDTH("Lights On!") / 2, _HEIGHT - FontHeight * 2), "Lights On!"
     _DEST 0
 
-    _PUTIMAGE (_WIDTH / 2 - _WIDTH(LightOff) / 2, 0), LightOff
+    _PUTIMAGE (_WIDTH / 2 - _WIDTH(LightOff(1)) / 2, 0), LightOff(1)
     _DELAY 1
     Alpha = 0
     IF Piano > 0 THEN _SNDPLAY Piano
@@ -107,9 +126,9 @@ IF LightOn < -1 AND LightOff < -1 THEN
         IF Alpha < 255 THEN Alpha = Alpha + 5 ELSE EXIT DO
         _SETALPHA Alpha, , SonicPassed
         _CLEARCOLOR _RGB32(0, 0, 0), SonicPassed
-        _SETALPHA Alpha, , LightOn
+        _SETALPHA Alpha, , LightOn(1)
 
-        _PUTIMAGE (_WIDTH / 2 - _WIDTH(LightOn) / 2, 0), LightOn
+        _PUTIMAGE (_WIDTH / 2 - _WIDTH(LightOn(1)) / 2, 0), LightOn(1)
         _PUTIMAGE , SonicPassed
 
         _DISPLAY
@@ -125,42 +144,52 @@ DO
             maxGridW = 1
             maxGridH = 2
             MinMoves = 2
+            lightID = 2
         CASE 2
             maxGridW = 2
             maxGridH = 2
             MinMoves = 1
+            lightID = 2
         CASE 3, 4
             maxGridW = 4
             maxGridH = 5
             MinMoves = 11
+            lightID = 3
         CASE 5
             maxGridW = 5
             maxGridH = 7
             MinMoves = 65
+            lightID = 4
         CASE 6
             maxGridW = 10
             maxGridH = 10
             MinMoves = 65
+            lightID = 6
         CASE 7, 8
             maxGridW = 7
             maxGridH = 9
             MinMoves = 90
+            lightID = 5
         CASE 9, 10
             maxGridW = 7
             maxGridH = 11
             MinMoves = 130
+            lightID = 7
         CASE 11, 12
             maxGridW = 9
             maxGridH = 11
             MinMoves = 90
+            lightID = 7
         CASE 13, 14
             maxGridW = 11
             maxGridH = 17
             MinMoves = 180
+            lightID = 8
         CASE ELSE
             maxGridW = 20
             maxGridH = 20
             MinMoves = 230
+            lightID = 9
     END SELECT
 
     maxW = _WIDTH(Arena) / maxGridW
@@ -220,7 +249,7 @@ DO
     Snd1 = false: Snd2 = false: Snd3 = false
     FinalBonus = false
 
-    IF LightOn < -1 THEN _SETALPHA 255, , LightOn
+    IF LightOn(3) < -1 THEN _SETALPHA 255, , LightOn(3)
 
     Alpha = 0
     TryAgain = false
@@ -229,8 +258,10 @@ DO
 
     BgXSpeed = .5
     BgYSpeed = .3
-    BgXOffset = _WIDTH(Bg) - _WIDTH * 1.5
-    BgYOffset = _HEIGHT(Bg) - _HEIGHT * 1.5
+    IF Bg < -1 THEN
+        BgXOffset = _WIDTH(Bg) - _WIDTH * 1.5
+        BgYOffset = _HEIGHT(Bg) - _HEIGHT * 1.5
+    END IF
 
     IF Piano > 0 THEN _SNDPLAY Piano
     DO
@@ -262,9 +293,11 @@ DO
 
         BgXOffset = BgXOffset + BgXSpeed
         BgYOffset = BgYOffset + BgYSpeed
-        IF BgXOffset < 0 OR BgXOffset + _WIDTH - 1 > _WIDTH(Bg) THEN BgXSpeed = BgXSpeed * -1
-        IF BgYOffset < 0 OR BgYOffset + _HEIGHT - 1 > _HEIGHT(Bg) THEN BgYSpeed = BgYSpeed * -1
-        IF Bg < -1 THEN _PUTIMAGE (0, 0)-STEP(_WIDTH - 1, _HEIGHT - 1), Bg, , (BgXOffset, BgYOffset)-STEP(_WIDTH - 1, _HEIGHT - 1)
+        IF Bg < -1 THEN
+            IF BgXOffset < 0 OR BgXOffset + _WIDTH - 1 > _WIDTH(Bg) THEN BgXSpeed = BgXSpeed * -1
+            IF BgYOffset < 0 OR BgYOffset + _HEIGHT - 1 > _HEIGHT(Bg) THEN BgYSpeed = BgYSpeed * -1
+            _PUTIMAGE (0, 0)-STEP(_WIDTH - 1, _HEIGHT - 1), Bg, , (BgXOffset, BgYOffset)-STEP(_WIDTH - 1, _HEIGHT - 1)
+        END IF
         SELECT CASE EndAnimationStep
             CASE 1
                 IF Alpha < 255 THEN Alpha = Alpha + 10 ELSE EndAnimationStep = 2: SlideOpen = 0: SlideVelocity = 30: Alpha = 0
@@ -298,10 +331,10 @@ DO
                 LINE (0, _HEIGHT / 2 - 125 + FontHeight * 1.5)-STEP(SlideOpen, 130), _RGB32(255, 255, 255), BF
                 LINE (0, _HEIGHT / 2 - 120 + FontHeight * 1.5)-STEP(SlideOpen, 120), _RGB32(b, b - 20, 0), BF
 
-                IF LightOff < -1 THEN
-                    _PUTIMAGE (i, j)-STEP(SlideOpen / 5, SlideOpen / 5), LightOff
-                    _PUTIMAGE (i + SlideOpen / 5, j)-STEP(SlideOpen / 5, SlideOpen / 5), LightOff
-                    _PUTIMAGE (i + (SlideOpen / 5) * 2, j)-STEP(SlideOpen / 5, SlideOpen / 5), LightOff
+                IF LightOff(3) < -1 THEN
+                    _PUTIMAGE (i, j), LightOff(3)
+                    _PUTIMAGE (i + SlideOpen / 5, j), LightOff(3)
+                    _PUTIMAGE (i + (SlideOpen / 5) * 2, j), LightOff(3)
                 END IF
 
                 IF EndAnimationStep >= 3 THEN
@@ -314,9 +347,9 @@ DO
                             IF Switch > 0 AND NOT SkipEndAnimation THEN _SNDPLAYCOPY Switch
                         END IF
 
-                        IF LightOn < -1 THEN
-                            _SETALPHA constrain(map(TIMER - FinalLamp1!, 0, .3, 0, 255), 0, 255), , LightOn
-                            _PUTIMAGE (i, j)-STEP(SlideOpen / 5, SlideOpen / 5), LightOn
+                        IF LightOn(3) < -1 THEN
+                            _SETALPHA constrain(map(TIMER - FinalLamp1!, 0, .3, 0, 255), 0, 255), , LightOn(3)
+                            _PUTIMAGE (i, j), LightOn(3)
                         ELSE
                             LINE (i, j)-STEP(SlideOpen / 5, SlideOpen / 5), _RGB32(111, 227, 39), BF
                             LINE (i, j)-STEP(SlideOpen / 5, SlideOpen / 5), _RGB32(0, 0, 0), B
@@ -334,9 +367,9 @@ DO
                             IF Switch > 0 AND NOT SkipEndAnimation THEN _SNDPLAYCOPY Switch
                         END IF
 
-                        IF LightOn < -1 THEN
-                            _SETALPHA constrain(map(TIMER - FinalLamp2!, 0, .3, 0, 255), 0, 255), , LightOn
-                            _PUTIMAGE (i + SlideOpen / 5, j)-STEP(SlideOpen / 5, SlideOpen / 5), LightOn
+                        IF LightOn(3) < -1 THEN
+                            _SETALPHA constrain(map(TIMER - FinalLamp2!, 0, .3, 0, 255), 0, 255), , LightOn(3)
+                            _PUTIMAGE (i + SlideOpen / 5, j), LightOn(3)
                         ELSE
                             LINE (i + SlideOpen / 5, j)-STEP(SlideOpen / 5, SlideOpen / 5), _RGB32(111, 227, 39), BF
                             LINE (i + SlideOpen / 5, j)-STEP(SlideOpen / 5, SlideOpen / 5), _RGB32(0, 0, 0), B
@@ -354,9 +387,9 @@ DO
                             IF Switch > 0 AND NOT SkipEndAnimation THEN _SNDPLAYCOPY Switch
                         END IF
 
-                        IF LightOn < -1 THEN
-                            _SETALPHA constrain(map(TIMER - FinalLamp3!, 0, .3, 0, 255), 0, 255), , LightOn
-                            _PUTIMAGE (i + (SlideOpen / 5) * 2, j)-STEP(SlideOpen / 5, SlideOpen / 5), LightOn
+                        IF LightOn(3) < -1 THEN
+                            _SETALPHA constrain(map(TIMER - FinalLamp3!, 0, .3, 0, 255), 0, 255), , LightOn(3)
+                            _PUTIMAGE (i + (SlideOpen / 5) * 2, j), LightOn(3)
                         ELSE
                             LINE (i + (SlideOpen / 5) * 2, j)-STEP(SlideOpen / 5, SlideOpen / 5), _RGB32(111, 227, 39), BF
                             LINE (i + (SlideOpen / 5) * 2, j)-STEP(SlideOpen / 5, SlideOpen / 5), _RGB32(0, 0, 0), B
@@ -434,17 +467,17 @@ SUB UpdateArena
     CLS
     FOR i = 1 TO maxGridW
         FOR j = 1 TO maxGridH
-            IF LightOff < -1 THEN
-                _PUTIMAGE (lights(i, j).x + lights(i, j).w / 2 - imgWidth / 2, lights(i, j).y)-STEP(imgWidth, lights(i, j).h), LightOff
+            IF LightOff(lightID) < -1 THEN
+                _PUTIMAGE (lights(i, j).x + lights(i, j).w / 2 - imgWidth / 2, lights(i, j).y), LightOff(lightID)
             END IF
             IF lights(i, j).IsOn THEN
-                IF LightOn < -1 THEN
+                IF LightOn(lightID) < -1 THEN
                     IF TIMER - lights(i, j).lastSwitch < .3 THEN
-                        _SETALPHA constrain(map(TIMER - lights(i, j).lastSwitch, 0, .3, 0, 255), 0, 255), , LightOn
+                        _SETALPHA constrain(map(TIMER - lights(i, j).lastSwitch, 0, .3, 0, 255), 0, 255), , LightOn(lightID)
                     ELSE
-                        _SETALPHA 255, , LightOn
+                        _SETALPHA 255, , LightOn(lightID)
                     END IF
-                    _PUTIMAGE (lights(i, j).x + lights(i, j).w / 2 - imgWidth / 2, lights(i, j).y)-STEP(imgWidth, lights(i, j).h), LightOn
+                    _PUTIMAGE (lights(i, j).x + lights(i, j).w / 2 - imgWidth / 2, lights(i, j).y), LightOn(lightID)
                 ELSE
                     LINE (lights(i, j).x, lights(i, j).y)-STEP(lights(i, j).w, lights(i, j).h), _RGB32(111, 227, 39), BF
                 END IF
