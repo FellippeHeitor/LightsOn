@@ -1,16 +1,10 @@
 'Lights On
 'A game by Fellippe Heitor - @FellippeHeitor - fellippe@qb64.org
 '
-'Light bulb images from https://blog.1000bulbs.com/home/flip-the-switch-how-an-incandescent-light-bulb-works
-'End level bg from http://blog-sap.com/analytics/2013/06/14/sap-lumira-new-software-update-general-availability-of-cloud-version-and-emeauk-flash-sale-at-bi2013/
-'Ding sound: https://www.freesound.org/people/Flo_Rayen/sounds/191835/
-'Bonus sound: http://freesound.org/people/LittleRobotSoundFactory/sounds/274183/
-'Piano sound: https://www.freesound.org/people/FoolBoyMedia/sounds/352655/
-'Switch sound: https://www.freesound.org/people/Mindloop/sounds/253659/
-'App icon: http://www.iconarchive.com/show/small-n-flat-icons-by-paomedia/light-bulb-icon.html
-'
 'Original concept by Avi Olti, Gyora Benedek, Zvi Herman, Revital Bloomberg, Avi Weiner and Michael Ganor
 'https://en.wikipedia.org/wiki/Lights_Out_(game)
+'
+'Assets sources disclaimed inside SUB GameSetup
 
 OPTION _EXPLICIT
 
@@ -18,59 +12,6 @@ $EXEICON:'./assets/lightson.ico'
 _ICON
 
 CONST true = -1, false = NOT true
-
-RANDOMIZE TIMER
-
-DIM SHARED Arena AS LONG, SonicPassed AS LONG, Bg AS LONG
-DIM SHARED LightOn(1 TO 9) AS LONG, LightOff(1 TO 9) AS LONG
-DIM SHARED Ding AS LONG, Piano AS LONG, Switch AS LONG, Bonus AS LONG
-DIM SHARED Arial AS LONG, FontHeight AS INTEGER
-
-Arena = _NEWIMAGE(600, 600, 32)
-
-'Load assets:
-'Arial = _LOADFONT("arial.ttf", 24)
-LightOn(1) = _LOADIMAGE("assets/lighton.png", 32)
-LightOn(2) = _LOADIMAGE("assets/lighton300.png", 32)
-LightOn(3) = _LOADIMAGE("assets/lighton120.png", 32)
-LightOn(4) = _LOADIMAGE("assets/lighton86.png", 32)
-LightOn(5) = _LOADIMAGE("assets/lighton67.png", 32)
-LightOn(6) = _LOADIMAGE("assets/lighton60.png", 32)
-LightOn(7) = _LOADIMAGE("assets/lighton55.png", 32)
-LightOn(8) = _LOADIMAGE("assets/lighton35.png", 32)
-LightOn(9) = _LOADIMAGE("assets/lighton30.png", 32)
-
-LightOff(1) = _LOADIMAGE("assets/lightoff.png", 32)
-LightOff(2) = _LOADIMAGE("assets/lightoff300.png", 32)
-LightOff(3) = _LOADIMAGE("assets/lightoff120.png", 32)
-LightOff(4) = _LOADIMAGE("assets/lightoff86.png", 32)
-LightOff(5) = _LOADIMAGE("assets/lightoff67.png", 32)
-LightOff(6) = _LOADIMAGE("assets/lightoff60.png", 32)
-LightOff(7) = _LOADIMAGE("assets/lightoff55.png", 32)
-LightOff(8) = _LOADIMAGE("assets/lightoff35.png", 32)
-LightOff(9) = _LOADIMAGE("assets/lightoff30.png", 32)
-
-Bg = _LOADIMAGE("assets/bg.jpg", 32)
-Ding = _SNDOPEN("assets/ding.wav", "sync")
-Piano = _SNDOPEN("assets/piano.ogg", "sync")
-Switch = _SNDOPEN("assets/switch.wav", "sync")
-Bonus = _SNDOPEN("assets/bonus.wav", "sync")
-
-IF Bg < -1 THEN _SETALPHA 30, , Bg
-IF Arial > 0 THEN FontHeight = _FONTHEIGHT(Arial) ELSE FontHeight = 16
-
-SCREEN _NEWIMAGE(600, 600 + FontHeight * 2, 32)
-DO UNTIL _SCREENEXISTS: _LIMIT 30: LOOP
-_TITLE "Lights On" + CHR$(0)
-
-SonicPassed = _NEWIMAGE(_WIDTH / 2, _HEIGHT / 2, 32)
-
-IF Arial > 0 THEN
-    _FONT Arial
-    _DEST SonicPassed
-    _FONT Arial
-    _DEST 0
-END IF
 
 TYPE obj
     i AS INTEGER
@@ -84,62 +25,170 @@ TYPE obj
     lastHint AS SINGLE
 END TYPE
 
-DIM SHARED maxGridW AS INTEGER, maxGridH AS INTEGER
+RANDOMIZE TIMER
 
+DIM SHARED Arena AS LONG, SonicPassed AS LONG, Bg AS LONG
+DIM SHARED LightOn(1 TO 9) AS LONG, LightOff(1 TO 9) AS LONG
+DIM SHARED RestartIcon AS LONG
+DIM SHARED Ding AS LONG, Piano AS LONG, Switch AS LONG, Bonus AS LONG
+DIM SHARED Arial AS LONG, FontHeight AS INTEGER
+DIM SHARED maxGridW AS INTEGER, maxGridH AS INTEGER
 DIM SHARED lights(1 TO 20, 1 TO 20) AS obj
 DIM SHARED start!, moves AS INTEGER, m$
 DIM SHARED i AS INTEGER, j AS INTEGER, Level AS INTEGER
-
-DIM k AS LONG, Alpha AS INTEGER
-DIM maxW AS INTEGER, maxH AS INTEGER
-DIM MinMoves AS INTEGER, Score AS _UNSIGNED LONG
-DIM TryAgain AS _BYTE
+DIM SHARED k AS LONG, Alpha AS INTEGER
+DIM SHARED maxW AS INTEGER, maxH AS INTEGER
+DIM SHARED MinMoves AS INTEGER, Score AS _UNSIGNED LONG
+DIM SHARED TryAgain AS _BYTE
 DIM SHARED lightID AS INTEGER
+DIM SHARED Button(1 TO 3) AS obj, Caption(1 TO UBOUND(Button)) AS STRING
 
-DIM Button(1 TO 2) AS obj, Caption(1 TO 2) AS STRING
-Caption(1) = "Try again"
-Button(1).y = _HEIGHT / 2 + FontHeight * 11.5
-Button(1).w = _PRINTWIDTH(Caption(1)) + 40
-Button(1).x = _WIDTH / 2 - 10 - Button(1).w
-Button(1).h = 40
-
-Caption(2) = "Next level"
-Button(2).y = _HEIGHT / 2 + FontHeight * 11.5
-Button(2).w = _PRINTWIDTH(Caption(2)) + 40
-Button(2).x = _WIDTH / 2 + 10
-Button(2).h = 40
-
-
-IF LightOn(1) < -1 AND LightOff(1) < -1 THEN
-    'Show intro
-    _DEST SonicPassed
-    CLS , 0
-    COLOR _RGB32(255, 255, 255), 0
-    _PRINTSTRING (_WIDTH / 2 - _PRINTWIDTH("Lights On!") / 2, _HEIGHT - FontHeight * 2), "Lights On!"
-    _DEST 0
-
-    _PUTIMAGE (_WIDTH / 2 - _WIDTH(LightOff(1)) / 2, 0), LightOff(1)
-    _DELAY 1
-    Alpha = 0
-    IF Piano > 0 THEN _SNDPLAY Piano
-    DO
-        IF Alpha < 255 THEN Alpha = Alpha + 5 ELSE EXIT DO
-        _SETALPHA Alpha, , SonicPassed
-        _CLEARCOLOR _RGB32(0, 0, 0), SonicPassed
-        _SETALPHA Alpha, , LightOn(1)
-
-        _PUTIMAGE (_WIDTH / 2 - _WIDTH(LightOn(1)) / 2, 0), LightOn(1)
-        _PUTIMAGE , SonicPassed
-
-        _DISPLAY
-        _LIMIT 20
-    LOOP
-END IF
+GameSetup
+Intro
 
 DO
+    SetLevel
+    DO
+        UpdateScore
+        UpdateArena
+
+        _DISPLAY
+
+        k = _KEYHIT
+
+        IF k = 27 THEN EXIT DO: SYSTEM
+
+        _LIMIT 30
+    LOOP UNTIL Victory
+
+    EndScreen
+LOOP
+
+SUB Intro
+    'Show intro
+    IF LightOn(1) < -1 AND LightOff(1) < -1 THEN
+        _DEST SonicPassed
+        CLS , 0
+        COLOR _RGB32(255, 255, 255), 0
+        _PRINTSTRING (_WIDTH / 2 - _PRINTWIDTH("Lights On!") / 2, _HEIGHT - FontHeight * 2), "Lights On!"
+        _DEST 0
+
+        _PUTIMAGE (_WIDTH / 2 - _WIDTH(LightOff(1)) / 2, 0), LightOff(1)
+        _DELAY 1
+        Alpha = 0
+        IF Piano > 0 THEN _SNDPLAY Piano
+        DO
+            IF Alpha < 255 THEN Alpha = Alpha + 5 ELSE EXIT DO
+            _SETALPHA Alpha, , SonicPassed
+            _CLEARCOLOR _RGB32(0, 0, 0), SonicPassed
+            _SETALPHA Alpha, , LightOn(1)
+
+            _PUTIMAGE (_WIDTH / 2 - _WIDTH(LightOn(1)) / 2, 0), LightOn(1)
+            _PUTIMAGE , SonicPassed
+
+            _DISPLAY
+            _LIMIT 20
+        LOOP
+    END IF
+END SUB
+
+SUB GameSetup
+    'Sources:
+    '--------------------------------------------------------------------------------------------------------------------
+    'Light bulb images from https://blog.1000bulbs.com/home/flip-the-switch-how-an-incandescent-light-bulb-works
+    'End level bg from http://blog-sap.com/analytics/2013/06/14/sap-lumira-new-software-update-general-availability-of-cloud-version-and-emeauk-flash-sale-at-bi2013/
+    'Ding sound: https://www.freesound.org/people/Flo_Rayen/sounds/191835/
+    'Bonus sound: http://freesound.org/people/LittleRobotSoundFactory/sounds/274183/
+    'Piano sound: https://www.freesound.org/people/FoolBoyMedia/sounds/352655/
+    'Switch sound: https://www.freesound.org/people/Mindloop/sounds/253659/
+    'App icon: http://www.iconarchive.com/show/small-n-flat-icons-by-paomedia/light-bulb-icon.html
+    'Restart icon: http://www.iconarchive.com/show/windows-8-icons-by-icons8/Computer-Hardware-Restart-icon.html
+    '--------------------------------------------------------------------------------------------------------------------
+
+    'Load assets:
+    Arena = _NEWIMAGE(600, 600, 32)
+
+    'Arial = _LOADFONT("arial.ttf", 24)
+    LightOn(1) = _LOADIMAGE("assets/lighton.png", 32)
+    LightOn(2) = _LOADIMAGE("assets/lighton300.png", 32)
+    LightOn(3) = _LOADIMAGE("assets/lighton120.png", 32)
+    LightOn(4) = _LOADIMAGE("assets/lighton86.png", 32)
+    LightOn(5) = _LOADIMAGE("assets/lighton67.png", 32)
+    LightOn(6) = _LOADIMAGE("assets/lighton60.png", 32)
+    LightOn(7) = _LOADIMAGE("assets/lighton55.png", 32)
+    LightOn(8) = _LOADIMAGE("assets/lighton35.png", 32)
+    LightOn(9) = _LOADIMAGE("assets/lighton30.png", 32)
+
+    LightOff(1) = _LOADIMAGE("assets/lightoff.png", 32)
+    LightOff(2) = _LOADIMAGE("assets/lightoff300.png", 32)
+    LightOff(3) = _LOADIMAGE("assets/lightoff120.png", 32)
+    LightOff(4) = _LOADIMAGE("assets/lightoff86.png", 32)
+    LightOff(5) = _LOADIMAGE("assets/lightoff67.png", 32)
+    LightOff(6) = _LOADIMAGE("assets/lightoff60.png", 32)
+    LightOff(7) = _LOADIMAGE("assets/lightoff55.png", 32)
+    LightOff(8) = _LOADIMAGE("assets/lightoff35.png", 32)
+    LightOff(9) = _LOADIMAGE("assets/lightoff30.png", 32)
+
+    Bg = _LOADIMAGE("assets/bg.jpg", 32)
+    RestartIcon = _LOADIMAGE("assets/restart.png", 32)
+
+    Ding = _SNDOPEN("assets/ding.wav", "sync")
+    Piano = _SNDOPEN("assets/piano.ogg", "sync")
+    Switch = _SNDOPEN("assets/switch.wav", "sync")
+    Bonus = _SNDOPEN("assets/bonus.wav", "sync")
+
+    IF Bg < -1 THEN _SETALPHA 30, , Bg
+    IF Arial > 0 THEN FontHeight = _FONTHEIGHT(Arial) ELSE FontHeight = 16
+
+    IF Arial > 0 THEN
+        _FONT Arial
+        _DEST SonicPassed
+        _FONT Arial
+        _DEST 0
+    END IF
+
+    'Screen setup:
+    SCREEN _NEWIMAGE(600, 600 + FontHeight * 2, 32)
+    DO UNTIL _SCREENEXISTS: _LIMIT 30: LOOP
+    _TITLE "Lights On" + CHR$(0)
+
+    SonicPassed = _NEWIMAGE(_WIDTH / 2, _HEIGHT / 2, 32)
+
+    'Set buttons:
+    DIM b AS INTEGER
+    b = b + 1: Caption(b) = "Try again"
+    Button(b).y = _HEIGHT / 2 + FontHeight * 11.5
+    Button(b).w = _PRINTWIDTH(Caption(b)) + 40
+    Button(b).x = _WIDTH / 2 - 10 - Button(b).w
+    Button(b).h = 40
+
+    b = b + 1: Caption(b) = "Next level"
+    Button(b).y = _HEIGHT / 2 + FontHeight * 11.5
+    Button(b).w = _PRINTWIDTH(Caption(b)) + 40
+    Button(b).x = _WIDTH / 2 + 10
+    Button(b).h = 40
+
+    b = b + 1: Caption(b) = "Restart level"
+    IF RestartIcon < -1 THEN
+        Button(b).w = _WIDTH(RestartIcon) + 20
+        Button(b).h = FontHeight * 2
+        Button(b).x = _WIDTH - Button(b).w - 10
+        Button(b).y = _HEIGHT - FontHeight - Button(b).h / 2
+    ELSE
+        Button(b).h = FontHeight * 2
+        Button(b).w = _PRINTWIDTH(Caption(b)) + 20
+        Button(b).x = _WIDTH - 10 - Button(b).w
+        Button(b).y = _HEIGHT - Button(b).h
+    END IF
+END SUB
+
+SUB SetLevel
     IF NOT TryAgain THEN Level = Level + 1
 
-    SELECT CASE Level
+    DIM LevelSettings AS INTEGER
+    IF Level <= 15 THEN LevelSettings = Level ELSE LevelSettings = _CEIL(RND * 13) + 2
+
+    SELECT CASE LevelSettings
         CASE 1
             maxGridW = 1
             maxGridH = 2
@@ -216,24 +265,9 @@ DO
 
     start! = TIMER
     moves = 0
-    DO
-        WHILE _MOUSEINPUT: WEND
+END SUB
 
-        UpdateArena
-
-        _DEST 0
-        UpdateScore
-        _PUTIMAGE (0, 0), Arena
-
-        _DISPLAY
-
-        k = _KEYHIT
-
-        IF k = 27 THEN EXIT DO: SYSTEM
-
-        _LIMIT 30
-    LOOP UNTIL Victory
-
+SUB EndScreen
     UpdateArena
     _DEST 0
     _PUTIMAGE (0, 0), Arena
@@ -424,7 +458,7 @@ DO
                     LINE (Button(ii).x + 5, Button(1).y + 5)-STEP(Button(ii).w, Button(ii).h), _RGB32(0, 0, 0), BF
                     LINE (Button(ii).x, Button(1).y)-STEP(Button(ii).w, Button(ii).h), _RGB32(255, 255, 255), BF
                 ELSE
-                    LINE (Button(ii).x, Button(ii).y)-STEP(Button(ii).w, Button(ii).h), _RGBA32(255, 255, 255, 30), BF
+                    LINE (Button(ii).x, Button(ii).y)-STEP(Button(ii).w, Button(ii).h), _RGBA32(255, 255, 255, 20), BF
                 END IF
                 'COLOR _RGB32(255, 255, 255), 0
                 '_PRINTSTRING (Button(ii).x + Button(ii).w / 2 - _PRINTWIDTH(Caption(ii)) / 2 + 1, Button(ii).y + Button(ii).h / 2 - FontHeight / 2 + 1), Caption(ii)
@@ -454,7 +488,7 @@ DO
 
         IF NOT SkipEndAnimation THEN _LIMIT 30
     LOOP
-LOOP
+END SUB
 
 SUB UpdateArena
     DIM imgWidth AS INTEGER, imgHeight AS INTEGER
@@ -490,15 +524,31 @@ SUB UpdateArena
             LINE (lights(i, j).x, lights(i, j).y)-STEP(lights(i, j).w, lights(i, j).h), , B
         NEXT
     NEXT
+    _DEST 0
+    _PUTIMAGE (0, 0), Arena
 END SUB
 
 SUB UpdateScore
-    m$ = "Level:" + STR$(Level) + " (" + LTRIM$(STR$(maxGridW)) + "x" + LTRIM$(STR$(maxGridH)) + ")    Moves:" + STR$(moves) + "    Time elapsed:" + STR$(INT(TIMER - start!)) + "s"
-
     COLOR _RGB32(0, 0, 0), _RGB32(255, 255, 255)
     CLS
 
-    _PRINTSTRING (_WIDTH / 2 - _PRINTWIDTH(m$) / 2, _HEIGHT - FontHeight * 1.5), m$
+    m$ = "Level:" + STR$(Level) + " (" + LTRIM$(STR$(maxGridW)) + "x" + LTRIM$(STR$(maxGridH)) + ")    Moves:" + STR$(moves) + "    Time elapsed:" + STR$(INT(TIMER - start!)) + "s"
+    _PRINTSTRING (10, _HEIGHT - FontHeight * 1.5), m$
+
+    IF Hovering(Button(3)) THEN
+        LINE (Button(3).x, Button(3).y)-STEP(Button(3).w - 1, Button(3).h - 1), _RGB32(127, 127, 127), BF
+        IF _MOUSEBUTTON(1) THEN
+            WHILE _MOUSEBUTTON(1): i = _MOUSEINPUT: WEND
+            TryAgain = true: SetLevel
+        END IF
+    END IF
+
+    IF RestartIcon < -1 THEN
+        _PUTIMAGE (Button(3).x + Button(3).w / 2 - _WIDTH(RestartIcon) / 2, Button(3).y + Button(3).h / 2 - _HEIGHT(RestartIcon) / 2), RestartIcon
+    ELSE
+        COLOR _RGB32(0, 0, 0), 0
+        _PRINTSTRING (Button(3).x + Button(3).w / 2 - _PRINTWIDTH(Caption(3)) / 2, Button(3).y + Button(3).h / 2 - FontHeight / 2), Caption(3)
+    END IF
 END SUB
 
 FUNCTION Victory%%
@@ -514,6 +564,7 @@ END FUNCTION
 
 SUB CheckState (object AS obj)
     DIM i AS INTEGER
+
     IF _MOUSEBUTTON(1) THEN
         IF Switch > 0 THEN _SNDPLAYCOPY Switch
         moves = moves + 1
@@ -555,6 +606,7 @@ SUB SetState (object AS obj)
 END SUB
 
 FUNCTION Hovering%% (object AS obj)
+    WHILE _MOUSEINPUT: WEND
     Hovering%% = _MOUSEX > object.x AND _MOUSEX < object.x + object.w AND _MOUSEY > object.y AND _MOUSEY < object.y + object.h
 END FUNCTION
 
