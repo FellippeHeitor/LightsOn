@@ -63,7 +63,7 @@ DO
 
         k = _KEYHIT
 
-        IF k = 27 THEN EXIT DO: SYSTEM
+        IF k = 27 THEN SYSTEM
 
         _LIMIT 30
     LOOP UNTIL Victory
