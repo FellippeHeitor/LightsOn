@@ -4,7 +4,7 @@
 'Original concept by Avi Olti, Gyora Benedek, Zvi Herman, Revital Bloomberg, Avi Weiner and Michael Ganor
 'https://en.wikipedia.org/wiki/Lights_Out_(game)
 '
-'Assets sources disclaimed inside SUB GameSetup
+'Assets sources acknowledged inside SUB GameSetup
 
 OPTION _EXPLICIT
 
@@ -27,9 +27,9 @@ END TYPE
 
 RANDOMIZE TIMER
 
-DIM SHARED Arena AS LONG, SonicPassed AS LONG, Bg AS LONG
+DIM SHARED Arena AS LONG, OverlayScreen AS LONG, Bg AS LONG
 DIM SHARED LightOn(1 TO 9) AS LONG, LightOff(1 TO 9) AS LONG
-DIM SHARED RestartIcon AS LONG
+DIM SHARED RestartIcon AS LONG, MouseCursor AS LONG
 DIM SHARED Ding AS LONG, Piano AS LONG, Switch AS LONG, Bonus AS LONG
 DIM SHARED Arial AS LONG, FontHeight AS INTEGER
 DIM SHARED maxGridW AS INTEGER, maxGridH AS INTEGER
@@ -39,9 +39,16 @@ DIM SHARED i AS INTEGER, j AS INTEGER, Level AS INTEGER
 DIM SHARED k AS LONG, Alpha AS INTEGER
 DIM SHARED maxW AS INTEGER, maxH AS INTEGER
 DIM SHARED MinMoves AS INTEGER, Score AS _UNSIGNED LONG
-DIM SHARED TryAgain AS _BYTE
+DIM SHARED TryAgain AS _BYTE, TutorialMode AS _BYTE
 DIM SHARED lightID AS INTEGER
-DIM SHARED Button(1 TO 3) AS obj, Caption(1 TO UBOUND(Button)) AS STRING
+REDIM SHARED Button(1 TO 1) AS obj, Caption(1 TO UBOUND(Button)) AS STRING
+
+'from p5js.bas - sound system
+TYPE new_SoundHandle
+    handle AS LONG
+    sync AS _BYTE
+END TYPE
+REDIM SHARED loadedSounds(0) AS new_SoundHandle
 
 GameSetup
 Intro
@@ -67,33 +74,168 @@ LOOP
 SUB Intro
     'Show intro
     IF LightOn(1) < -1 AND LightOff(1) < -1 THEN
-        _DEST SonicPassed
+        _DEST OverlayScreen
         CLS , 0
         COLOR _RGB32(255, 255, 255), 0
         _PRINTSTRING (_WIDTH / 2 - _PRINTWIDTH("Lights On!") / 2, _HEIGHT - FontHeight * 2), "Lights On!"
         _DEST 0
 
         _PUTIMAGE (_WIDTH / 2 - _WIDTH(LightOff(1)) / 2, 0), LightOff(1)
-        _DELAY 1
+        _DELAY .5
         Alpha = 0
-        IF Piano > 0 THEN _SNDPLAY Piano
+        p5play Piano
         DO
             IF Alpha < 255 THEN Alpha = Alpha + 5 ELSE EXIT DO
-            _SETALPHA Alpha, , SonicPassed
-            _CLEARCOLOR _RGB32(0, 0, 0), SonicPassed
+            _SETALPHA Alpha, , OverlayScreen
+            _CLEARCOLOR _RGB32(0, 0, 0), OverlayScreen
             _SETALPHA Alpha, , LightOn(1)
 
             _PUTIMAGE (_WIDTH / 2 - _WIDTH(LightOn(1)) / 2, 0), LightOn(1)
-            _PUTIMAGE , SonicPassed
+            _PUTIMAGE , OverlayScreen
 
             _DISPLAY
             _LIMIT 20
         LOOP
+
+        IF _FILEEXISTS("lightson.dat") = false THEN
+            'offer tutorial on the first run
+            DIM ii AS INTEGER
+
+            _DEST OverlayScreen
+            CLS , 0
+            m$ = "Show instructions?"
+            COLOR _RGB32(0, 0, 0), 0
+            _PRINTSTRING (_WIDTH / 2 - _PRINTWIDTH(m$) / 2 + 1, _HEIGHT / 2 - FontHeight * 2 + 1), m$
+            COLOR _RGB32(255, 255, 255), 0
+            _PRINTSTRING (_WIDTH / 2 - _PRINTWIDTH(m$) / 2, _HEIGHT / 2 - FontHeight * 2), m$
+            _DEST 0
+
+            DO
+                _PUTIMAGE (_WIDTH / 2 - _WIDTH(LightOn(1)) / 2, 0), LightOn(1)
+                _PUTIMAGE , OverlayScreen
+
+                FOR ii = 4 TO 5
+                    IF Hovering(Button(ii)) THEN
+                        LINE (Button(ii).x + 5, Button(ii).y + 5)-STEP(Button(ii).w, Button(ii).h), _RGB32(0, 0, 0), BF
+                        LINE (Button(ii).x, Button(ii).y)-STEP(Button(ii).w, Button(ii).h), _RGB32(255, 255, 255), BF
+                    ELSE
+                        LINE (Button(ii).x, Button(ii).y)-STEP(Button(ii).w, Button(ii).h), _RGBA32(255, 255, 255, 170), BF
+                    END IF
+                    COLOR _RGB32(0, 0, 0), 0
+                    _PRINTSTRING (Button(ii).x + Button(ii).w / 2 - _PRINTWIDTH(Caption(ii)) / 2, Button(ii).y + Button(ii).h / 2 - FontHeight / 2), Caption(ii)
+                NEXT
+
+                IF _MOUSEBUTTON(1) THEN
+                    WHILE _MOUSEBUTTON(1): ii = _MOUSEINPUT: WEND
+                    IF Hovering(Button(5)) THEN
+                        EXIT DO
+                    ELSEIF Hovering(Button(4)) THEN
+                        TutorialMode = true
+                        ShowTutorial
+                        TutorialMode = false
+                        EXIT DO
+                    END IF
+                END IF
+
+                _DISPLAY
+                _LIMIT 30
+            LOOP
+        END IF
     END IF
 END SUB
 
+SUB ShowTutorial
+    DIM i AS INTEGER, j AS INTEGER
+    DIM mx AS INTEGER, my AS INTEGER
+    DIM StepNumber AS INTEGER, TotalSteps AS INTEGER
+
+    Level = 2
+    SetLevel
+    TotalSteps = 2
+
+    StatusText "Tutorial Mode - Click to Continue"
+    UpdateArena
+    StepNumber = StepNumber + 1
+    CenteredText "(" + LTRIM$(STR$(StepNumber)) + "/" + LTRIM$(STR$(TotalSteps)) + ") Your goal is to turn all light bulbs on."
+
+    mx = 400
+    my = 400
+    _PUTIMAGE (mx, my), MouseCursor
+
+    _DISPLAY
+    ClickPause
+    IF k = 27 THEN Level = 0: EXIT SUB
+
+    FOR i = 1 TO maxGridW
+        FOR j = 1 TO maxGridH
+            lights(i, j).IsOn = false
+        NEXT
+    NEXT
+
+    UpdateArena
+    StepNumber = StepNumber + 1
+    CenteredText "(" + LTRIM$(STR$(StepNumber)) + "/" + LTRIM$(STR$(TotalSteps)) + ") However, you can't simply switch a light bulb on or off."
+
+    mx = 400
+    my = 400
+    _PUTIMAGE (mx, my), MouseCursor
+
+    _DISPLAY
+    ClickPause
+    IF k = 27 THEN Level = 0: EXIT SUB
+
+    DO
+        mx = mx - 1
+        my = my - 1
+        UpdateArena
+        _PUTIMAGE (mx, my), MouseCursor
+        _DISPLAY
+        _LIMIT 120
+    LOOP UNTIL mx = 100 AND my = 100
+
+    ClickPause
+    IF k = 27 THEN Level = 0: EXIT SUB
+
+    Level = 0
+    EXIT SUB
+END SUB
+
+SUB ClickPause
+    DO
+        k = _KEYHIT
+
+        WHILE _MOUSEINPUT: WEND
+        IF _MOUSEBUTTON(1) THEN
+            WHILE _MOUSEBUTTON(1): i = _MOUSEINPUT: WEND
+            EXIT DO
+        END IF
+
+        _LIMIT 30
+    LOOP UNTIL k = 27 OR k = 13
+END SUB
+
+SUB CenteredText (Text$)
+    DIM tWidth AS INTEGER, tHeight AS INTEGER
+
+    tWidth = _PRINTWIDTH(Text$) + 20
+    tHeight = FontHeight * 2
+
+    LINE (_WIDTH / 2 - tWidth / 2, _HEIGHT / 2 - tHeight / 2)-STEP(tWidth - 1, tHeight - 1), _RGBA32(255, 255, 255, 200), BF
+    COLOR _RGB32(255, 255, 255), 0
+    _PRINTSTRING (_WIDTH / 2 - _PRINTWIDTH(Text$) / 2 + 1, _HEIGHT / 2 - FontHeight / 2 + 1), Text$
+    COLOR _RGB32(0, 0, 0), 0
+    _PRINTSTRING (_WIDTH / 2 - _PRINTWIDTH(Text$) / 2, _HEIGHT / 2 - FontHeight / 2), Text$
+END SUB
+
+SUB StatusText (Text$)
+    COLOR _RGB32(0, 0, 0), _RGB32(255, 255, 255)
+    CLS
+
+    _PRINTSTRING (_WIDTH / 2 - _PRINTWIDTH(Text$) / 2, _HEIGHT - FontHeight * 1.5), Text$
+END SUB
+
 SUB GameSetup
-    'Sources:
+    'Acknowledgements:
     '--------------------------------------------------------------------------------------------------------------------
     'Light bulb images from https://blog.1000bulbs.com/home/flip-the-switch-how-an-incandescent-light-bulb-works
     'End level bg from http://blog-sap.com/analytics/2013/06/14/sap-lumira-new-software-update-general-availability-of-cloud-version-and-emeauk-flash-sale-at-bi2013/
@@ -103,6 +245,7 @@ SUB GameSetup
     'Switch sound: https://www.freesound.org/people/Mindloop/sounds/253659/
     'App icon: http://www.iconarchive.com/show/small-n-flat-icons-by-paomedia/light-bulb-icon.html
     'Restart icon: http://www.iconarchive.com/show/windows-8-icons-by-icons8/Computer-Hardware-Restart-icon.html
+    'Mouse cursor icon: http://www.iconarchive.com/show/windows-8-icons-by-icons8/Very-Basic-Cursor-icon.html
     '--------------------------------------------------------------------------------------------------------------------
 
     'Load assets:
@@ -131,18 +274,19 @@ SUB GameSetup
 
     Bg = _LOADIMAGE("assets/bg.jpg", 32)
     RestartIcon = _LOADIMAGE("assets/restart.png", 32)
+    MouseCursor = _LOADIMAGE("assets/mouse.png", 32)
 
-    Ding = _SNDOPEN("assets/ding.wav", "sync")
-    Piano = _SNDOPEN("assets/piano.ogg", "sync")
-    Switch = _SNDOPEN("assets/switch.wav", "sync")
-    Bonus = _SNDOPEN("assets/bonus.wav", "sync")
+    Ding = loadSound("assets/ding.wav")
+    Piano = loadSound("assets/piano.ogg")
+    Switch = loadSound("assets/switch.wav")
+    Bonus = loadSound("assets/bonus.wav")
 
     IF Bg < -1 THEN _SETALPHA 30, , Bg
     IF Arial > 0 THEN FontHeight = _FONTHEIGHT(Arial) ELSE FontHeight = 16
 
     IF Arial > 0 THEN
         _FONT Arial
-        _DEST SonicPassed
+        _DEST OverlayScreen
         _FONT Arial
         _DEST 0
     END IF
@@ -152,9 +296,11 @@ SUB GameSetup
     DO UNTIL _SCREENEXISTS: _LIMIT 30: LOOP
     _TITLE "Lights On" + CHR$(0)
 
-    SonicPassed = _NEWIMAGE(_WIDTH / 2, _HEIGHT / 2, 32)
+    OverlayScreen = _NEWIMAGE(_WIDTH / 2, _HEIGHT / 2, 32)
 
     'Set buttons:
+    REDIM Button(1 TO 5) AS obj, Caption(1 TO UBOUND(Button)) AS STRING
+
     DIM b AS INTEGER
     b = b + 1: Caption(b) = "Try again"
     Button(b).y = _HEIGHT / 2 + FontHeight * 11.5
@@ -180,6 +326,18 @@ SUB GameSetup
         Button(b).x = _WIDTH - 10 - Button(b).w
         Button(b).y = _HEIGHT - Button(b).h
     END IF
+
+    b = b + 1: Caption(b) = "Yes"
+    Button(b).y = _HEIGHT / 2 - FontHeight / 2
+    Button(b).w = _PRINTWIDTH(Caption(b)) + 40
+    Button(b).x = _WIDTH / 2 - 10 - Button(b).w
+    Button(b).h = 40
+
+    b = b + 1: Caption(b) = "No"
+    Button(b).y = _HEIGHT / 2 - FontHeight / 2
+    Button(b).w = _PRINTWIDTH(Caption(b)) + 40
+    Button(b).x = _WIDTH / 2 + 10
+    Button(b).h = 40
 END SUB
 
 SUB SetLevel
@@ -297,12 +455,12 @@ SUB EndScreen
         BgYOffset = _HEIGHT(Bg) - _HEIGHT * 1.5
     END IF
 
-    IF Piano > 0 THEN _SNDPLAY Piano
+    p5play Piano
     DO
         WHILE _MOUSEINPUT: WEND
 
         IF EndAnimationStep < 70 THEN
-            _DEST SonicPassed
+            _DEST OverlayScreen
             CLS , 0
             m$ = "Level" + STR$(Level) + " - All Lights On!"
             COLOR _RGB32(0, 0, 0), 0
@@ -339,7 +497,7 @@ SUB EndScreen
                     LINE (0, 0)-(_WIDTH, _HEIGHT), _RGBA32(255, 255, 0, Alpha), BF
                     LINE (0, 0)-(_WIDTH, _HEIGHT), _RGBA32(255, 255, 255, Alpha), BF
                 END IF
-                _PUTIMAGE , SonicPassed
+                _PUTIMAGE , OverlayScreen
             CASE 2
                 IF NOT Bg < -1 THEN LINE (0, 0)-(_WIDTH, _HEIGHT), _RGBA32(255, 255, 255, 30), BF
                 SlideVelocity = SlideVelocity - .2
@@ -353,7 +511,7 @@ SUB EndScreen
                     j = _HEIGHT / 2 - SlideOpen / 5 + FontHeight * 1.5
                 END IF
 
-                _PUTIMAGE , SonicPassed
+                _PUTIMAGE , OverlayScreen
                 DIM b AS INTEGER
                 b = map(SlideOpen, 0, 600, 255, 0)
                 LINE (0, _HEIGHT / 2 - 125 + FontHeight * 1.5)-STEP(SlideOpen, 130), _RGB32(255, 255, 255), BF
@@ -361,7 +519,7 @@ SUB EndScreen
             CASE IS >= 3
                 EndAnimationStep = EndAnimationStep + 1
                 IF NOT Bg < -1 THEN LINE (0, 0)-(_WIDTH, _HEIGHT), _RGBA32(255, 255, 255, 40), BF
-                _PUTIMAGE , SonicPassed
+                _PUTIMAGE , OverlayScreen
                 LINE (0, _HEIGHT / 2 - 125 + FontHeight * 1.5)-STEP(SlideOpen, 130), _RGB32(255, 255, 255), BF
                 LINE (0, _HEIGHT / 2 - 120 + FontHeight * 1.5)-STEP(SlideOpen, 120), _RGB32(b, b - 20, 0), BF
 
@@ -373,12 +531,12 @@ SUB EndScreen
 
                 IF EndAnimationStep >= 3 THEN
                     IF MinMoves <= MinMoves * 3 THEN
-                        IF Ding > 0 AND Snd1 = false THEN _SNDPLAYCOPY Ding: Snd1 = true
+                        IF Snd1 = false THEN p5play Ding: Snd1 = true
                         IF EndAnimationStep = 4 THEN FinalLamp1! = TIMER: Score = Score + 20
 
                         IF EndAnimationStep <= 20 THEN
                             Score = Score + 10
-                            IF Switch > 0 AND NOT SkipEndAnimation THEN _SNDPLAYCOPY Switch
+                            IF NOT SkipEndAnimation THEN p5play Switch
                         END IF
 
                         IF LightOn(3) < -1 THEN
@@ -393,12 +551,12 @@ SUB EndScreen
 
                 IF EndAnimationStep > 20 THEN
                     IF moves <= MinMoves * 2 THEN
-                        IF Ding > 0 AND Snd2 = false THEN _SNDPLAYCOPY Ding: Snd2 = true
+                        IF Snd2 = false THEN p5play Ding: Snd2 = true
                         IF EndAnimationStep = 21 THEN FinalLamp2! = TIMER: Score = Score + 20
 
                         IF EndAnimationStep <= 40 THEN
                             Score = Score + 10
-                            IF Switch > 0 AND NOT SkipEndAnimation THEN _SNDPLAYCOPY Switch
+                            IF NOT SkipEndAnimation THEN p5play Switch
                         END IF
 
                         IF LightOn(3) < -1 THEN
@@ -413,12 +571,12 @@ SUB EndScreen
 
                 IF EndAnimationStep > 40 THEN
                     IF moves <= MinMoves THEN
-                        IF Ding > 0 AND Snd3 = false THEN _SNDPLAYCOPY Ding: Snd3 = true
+                        IF Snd3 = false THEN p5play Ding: Snd3 = true
                         IF EndAnimationStep = 41 THEN FinalLamp3! = TIMER: Score = Score + 20
 
                         IF EndAnimationStep <= 60 THEN
                             Score = Score + 10
-                            IF Switch > 0 AND NOT SkipEndAnimation THEN _SNDPLAYCOPY Switch
+                            IF NOT SkipEndAnimation THEN p5play Switch
                         END IF
 
                         IF LightOn(3) < -1 THEN
@@ -436,7 +594,7 @@ SUB EndScreen
                         FinalBonus = true
                         IF moves < MinMoves THEN
                             Score = Score + 50
-                            IF Bonus > 0 THEN _SNDPLAYCOPY Bonus
+                            p5play Bonus
                         END IF
                     ELSE
                         IF moves < MinMoves THEN
@@ -455,8 +613,8 @@ SUB EndScreen
             DIM ii AS INTEGER
             FOR ii = 1 TO 2
                 IF Hovering(Button(ii)) THEN
-                    LINE (Button(ii).x + 5, Button(1).y + 5)-STEP(Button(ii).w, Button(ii).h), _RGB32(0, 0, 0), BF
-                    LINE (Button(ii).x, Button(1).y)-STEP(Button(ii).w, Button(ii).h), _RGB32(255, 255, 255), BF
+                    LINE (Button(ii).x + 5, Button(ii).y + 5)-STEP(Button(ii).w, Button(ii).h), _RGB32(0, 0, 0), BF
+                    LINE (Button(ii).x, Button(ii).y)-STEP(Button(ii).w, Button(ii).h), _RGB32(255, 255, 255), BF
                 ELSE
                     LINE (Button(ii).x, Button(ii).y)-STEP(Button(ii).w, Button(ii).h), _RGBA32(255, 255, 255, 20), BF
                 END IF
@@ -516,7 +674,7 @@ SUB UpdateArena
                     LINE (lights(i, j).x, lights(i, j).y)-STEP(lights(i, j).w, lights(i, j).h), _RGB32(111, 227, 39), BF
                 END IF
             END IF
-            IF Hovering(lights(i, j)) AND FoundHover = false THEN
+            IF Hovering(lights(i, j)) AND FoundHover = false AND TutorialMode = false THEN
                 FoundHover = true
                 LINE (lights(i, j).x, lights(i, j).y)-STEP(lights(i, j).w, lights(i, j).h), _RGBA32(255, 255, 255, 100), BF
                 CheckState lights(i, j)
@@ -566,7 +724,7 @@ SUB CheckState (object AS obj)
     DIM i AS INTEGER
 
     IF _MOUSEBUTTON(1) THEN
-        IF Switch > 0 THEN _SNDPLAYCOPY Switch
+        p5play Switch
         moves = moves + 1
         SetState object
 
@@ -626,4 +784,41 @@ END FUNCTION
 FUNCTION constrain! (n!, low!, high!)
     constrain! = max(min(n!, high!), low!)
 END FUNCTION
+
+FUNCTION loadSound& (file$)
+    IF _FILEEXISTS(file$) = 0 THEN EXIT FUNCTION
+    DIM tempHandle&, setting$
+    STATIC totalLoadedSounds AS LONG
+
+    setting$ = "vol"
+
+    SELECT CASE UCASE$(RIGHT$(file$, 4))
+        CASE ".WAV", ".OGG", ".AIF", ".RIF", ".VOC"
+            setting$ = "vol,sync,len,pause"
+        CASE ".MP3"
+            setting$ = "vol,pause,setpos"
+    END SELECT
+
+    tempHandle& = _SNDOPEN(file$, setting$)
+    IF tempHandle& > 0 THEN
+        totalLoadedSounds = totalLoadedSounds + 1
+        REDIM _PRESERVE loadedSounds(totalLoadedSounds) AS new_SoundHandle
+        loadedSounds(totalLoadedSounds).handle = tempHandle&
+        loadedSounds(totalLoadedSounds).sync = INSTR(setting$, "sync") > 0
+        loadSound& = tempHandle&
+    END IF
+END FUNCTION
+
+SUB p5play (soundHandle&)
+    DIM i AS LONG
+    FOR i = 1 TO UBOUND(loadedSounds)
+        IF loadedSounds(i).handle = soundHandle& THEN
+            IF loadedSounds(i).sync THEN
+                _SNDPLAYCOPY soundHandle&
+            ELSE
+                IF NOT _SNDPLAYING(soundHandle&) THEN _SNDPLAY soundHandle&
+            END IF
+        END IF
+    NEXT
+END SUB
 
