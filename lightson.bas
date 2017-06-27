@@ -169,6 +169,7 @@ SUB ClickPause
             EXIT DO
         END IF
 
+        _DISPLAY
         _LIMIT 30
     LOOP UNTIL k = 27 OR k = 13
 END SUB
