@@ -84,6 +84,7 @@ SUB Intro
         _DELAY .5
         Alpha = 0
         p5play Piano
+        _FONT 8
         DO
             IF Alpha < 255 THEN Alpha = Alpha + 5 ELSE EXIT DO
             _SETALPHA Alpha, , OverlayScreen
@@ -92,12 +93,16 @@ SUB Intro
 
             _PUTIMAGE (_WIDTH / 2 - _WIDTH(LightOn(1)) / 2, 0), LightOn(1)
             _PUTIMAGE , OverlayScreen
+            COLOR _RGBA32(255, 255, 255, Alpha), 0
+            _PRINTSTRING (_WIDTH / 2 - _PRINTWIDTH("Fellippe Heitor, 2017") / 2, _HEIGHT - FontHeight * 1.5), "Fellippe Heitor, 2017"
 
             _DISPLAY
             _LIMIT 20
         LOOP
 
-        IF _FILEEXISTS("lightson.dat") = false THEN
+        _FONT 16
+
+        IF _FILEEXISTS("lightson.dat") = false AND isLoaded(MouseCursor) THEN
             'offer tutorial on the first run
             DIM ii AS INTEGER
 
@@ -162,7 +167,7 @@ SUB CenteredText (Text$)
     DIM tWidth AS INTEGER, tHeight AS INTEGER
 
     tWidth = _PRINTWIDTH(Text$) + 20
-    tHeight = FontHeight * 2
+    tHeight = FontHeight * 3
 
     LINE (_WIDTH / 2 - tWidth / 2, _HEIGHT / 2 - tHeight / 2)-STEP(tWidth - 1, tHeight - 1), _RGBA32(255, 255, 255, 200), BF
     COLOR _RGB32(255, 255, 255), 0
@@ -739,6 +744,25 @@ FUNCTION Hovering%% (object AS obj)
     Hovering%% = _MOUSEX > object.x AND _MOUSEX < object.x + object.w AND _MOUSEY > object.y AND _MOUSEY < object.y + object.h
 END FUNCTION
 
+SUB MoveMouse (sx AS INTEGER, sy AS INTEGER, dx AS INTEGER, dy AS INTEGER)
+    DIM stepX AS SINGLE, stepY AS SINGLE
+    DIM i AS _BYTE
+
+    CONST maxSteps = 30
+
+    stepX = (dx - sx) / maxSteps
+    stepY = (dy - sy) / maxSteps
+
+    FOR i = 1 TO maxSteps
+        sx = sx + stepX
+        sy = sy + stepY
+        UpdateArena
+        _PUTIMAGE (sx, sy), MouseCursor
+        _DISPLAY
+        _LIMIT 30
+    NEXT
+END SUB
+
 SUB ShowTutorial
     DIM i AS INTEGER, j AS INTEGER
     DIM mx AS INTEGER, my AS INTEGER
@@ -746,9 +770,9 @@ SUB ShowTutorial
 
     Level = 2
     SetLevel
-    TotalSteps = 2
+    TotalSteps = 5
 
-    StatusText "Tutorial Mode - Click to Continue"
+    StatusText "Tutorial Mode - Click to proceed"
     UpdateArena
     StepNumber = StepNumber + 1
     CenteredText "(" + LTRIM$(STR$(StepNumber)) + "/" + LTRIM$(STR$(TotalSteps)) + ") Your goal is to turn all light bulbs on."
@@ -769,27 +793,60 @@ SUB ShowTutorial
 
     UpdateArena
     StepNumber = StepNumber + 1
-    CenteredText "(" + LTRIM$(STR$(StepNumber)) + "/" + LTRIM$(STR$(TotalSteps)) + ") However, you can't simply switch a light bulb on or off."
+    CenteredText "(" + LTRIM$(STR$(StepNumber)) + "/" + LTRIM$(STR$(TotalSteps)) + ") However, you can't simply switch a light bulb on or off directly."
 
     mx = 400
     my = 400
     _PUTIMAGE (mx, my), MouseCursor
 
     _DISPLAY
+
     ClickPause
     IF k = 27 THEN Level = 0: EXIT SUB
 
+    UpdateArena
+    StepNumber = StepNumber + 1
+    CenteredText "(" + LTRIM$(STR$(StepNumber)) + "/" + LTRIM$(STR$(TotalSteps)) + ") You click a light bulb to turn the surrounding ones on/off."
+    _PUTIMAGE (mx, my), MouseCursor
+    _DISPLAY
+
+    ClickPause
+    IF k = 27 THEN Level = 0: EXIT SUB
+
+    MoveMouse mx, my, lights(2, 2).x + lights(2, 2).w / 2, lights(2, 2).y + lights(2, 2).h / 2
+    SetState lights(2, 2)
+    p5play Switch
     DO
-        mx = mx - 1
-        my = my - 1
         UpdateArena
         _PUTIMAGE (mx, my), MouseCursor
         _DISPLAY
-        _LIMIT 120
-    LOOP UNTIL mx = 100 AND my = 100
+    LOOP UNTIL TIMER - lights(2, 1).lastSwitch > .3
+
+    UpdateArena
+    _PUTIMAGE (mx, my), MouseCursor
+    StepNumber = StepNumber + 1
+    CenteredText "(" + LTRIM$(STR$(StepNumber)) + "/" + LTRIM$(STR$(TotalSteps)) + ") Continue until all light bulbs are on."
+    _DISPLAY
 
     ClickPause
     IF k = 27 THEN Level = 0: EXIT SUB
+
+    MoveMouse mx, my, lights(3, 2).x + lights(3, 2).w / 2, lights(3, 2).y + lights(3, 2).h / 2
+    SetState lights(3, 2)
+    p5play Switch
+    DO
+        UpdateArena
+        _PUTIMAGE (mx, my), MouseCursor
+        _DISPLAY
+    LOOP UNTIL TIMER - lights(3, 1).lastSwitch > .3
+
+    UpdateArena
+    StepNumber = StepNumber + 1
+    _PUTIMAGE (mx, my), MouseCursor
+    CenteredText "(" + LTRIM$(STR$(StepNumber)) + "/" + LTRIM$(STR$(TotalSteps)) + ") Simple right? Click to start."
+    _DISPLAY
+
+    ClickPause
 
     Level = 0
     EXIT SUB
