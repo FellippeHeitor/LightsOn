@@ -68,6 +68,14 @@ DO
         _LIMIT 30
     LOOP UNTIL Victory
 
+    'Give time for the last set of bulbs to light up
+    DIM LastBulbs AS SINGLE
+    LastBulbs = TIMER
+    DO
+        UpdateArena
+        _DISPLAY
+    LOOP UNTIL TIMER - LastBulbs > .3
+
     EndScreen
 LOOP
 
@@ -137,6 +145,8 @@ SUB Intro
                     ELSEIF Hovering(Button(4)) THEN
                         TutorialMode = true
                         ShowTutorial
+                        OPEN "lightson.dat" FOR OUTPUT AS #1
+                        CLOSE #1
                         TutorialMode = false
                         EXIT DO
                     END IF
